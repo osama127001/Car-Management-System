@@ -1,0 +1,307 @@
+-- User Table
+-- Table
+CREATE TABLE tbl_User(User_ID INT NOT NULL PRIMARY KEY, User_Name nvarchar(MAX) NOT NULL, User_Password nvarchar(MAX) NOT NULL, User_CNIC INT NOT NULL, 
+User_Address nvarchar(MAX) NOT NULL, User_NTN INT NOT NULL)
+
+-- tbl_Car
+CREATE TABLE tbl_Car(Car_ID INT PRIMARY KEY, Car_Numberplate nvarchar(MAX) NOT NULL, Car_EngineNo nvarchar(MAX) NOT NULL, Car_ChassisNo INT NOT NULL, 
+Car_Name nvarchar(MAX) NOT NULL, Car_Model nvarchar(MAX) NOT NULL, Car_Color nvarchar(MAX), User_ID INT NOT NULL, CONSTRAINT FK_Car_UserID FOREIGN KEY 
+(User_ID) REFERENCES tbl_User(User_ID))
+
+------------------------------
+
+-- Register User
+ALTER PROCEDURE sp_Register_user (@U_Name nvarchar(MAX), @U_Password nvarchar(MAX), @U_CNIC INT, @U_Address nvarchar(MAX), @U_NTN INT, @flag INT output)
+AS 
+BEGIN
+	BEGIN TRY
+			INSERT INTO tbl_User(User_Name, User_Password, User_CNIC, User_Address, User_NTN) VALUES (@U_Name, @U_Password, @U_CNIC, @U_Address, @U_NTN);
+			DECLARE @id INT
+			SELECT @id = USER_ID FROM tbl_User WHERE User_CNIC = @U_CNIC;
+			INSERT INTO tbl_Employee(User_ID) VALUES (@id)
+			SET @flag = @id;
+	END TRY
+	BEGIN CATCH
+		SELECT ERROR_LINE(),ERROR_MESSAGE(),ERROR_PROCEDURE();
+		SET @flag = 0;
+	END CATCH
+END
+
+
+-- Register Car
+ALTER PROCEDURE sp_Register_car (@Car_Numberplate nvarchar(MAX), @Car_EngineNo nvarchar(MAX), @Car_ChassisNo nvarchar(MAX), @Car_Name nvarchar(MAX), @Car_Model nvarchar(MAX), @Car_Color nvarchar(MAX), @User_ID INT, @flag INT output,  @iddd INT output)
+AS
+BEGIN
+	BEGIN TRY
+		DECLARE @id INT;
+		SELECT @id = User_ID FROM tbl_User WHERE User_ID = @User_ID;
+		IF ((@id is NOT NULL))
+		BEGIN
+			print('Car Registration Successful');
+			INSERT INTO tbl_Car(Car_Numberplate, Car_EngineNo, Car_ChassisNo, Car_Name, Car_Model, Car_Color, User_ID) VALUES (@Car_Numberplate, @Car_EngineNo, @Car_ChassisNo, @Car_Name, @Car_Model, @Car_Color, @id);	
+			SET @flag = 1;
+			SELECT @iddd = tbl_Car.Car_ID FROM tbl_Car WHERE tbl_Car.Car_ChassisNo = @Car_ChassisNo;
+		END
+		ELSE
+		BEGIN
+			Raiserror('Cannot Login',16,1);
+			SET @flag = 0;
+			return;
+		END
+	END TRY
+	BEGIN CATCH
+		SELECT ERROR_LINE(),ERROR_MESSAGE(),ERROR_PROCEDURE();
+	END CATCH
+END
+
+
+
+---------------------------------------------------------------------------------------------------------
+-- Create table Admin
+CREATE TABLE tbl_Admin(Admin_ID INT NOT NULL PRIMARY KEY, User_ID INT NOT NULL, CONSTRAINT FK_Admin_UserID FOREIGN KEY (User_ID) REFERENCES tbl_User(User_ID))
+
+
+-- Admin Login
+ALTER PROCEDURE sp_Admin_Login(@U_ID INT, @A_Pass nvarchar(MAX), @A_IDD INT output, @A_Name nvarchar(MAX) output)
+AS 
+BEGIN
+	BEGIN TRY
+		DECLARE @id INT, @name nvarchar(MAX), @idd INT;
+		SELECT @id = tbl_User.User_ID, @name = tbl_User.User_Name FROM tbl_Admin INNER JOIN tbl_User ON tbl_User.User_ID = tbl_Admin.User_ID
+		WHERE tbl_User.User_ID = @U_ID AND tbl_User.User_Password = @A_Pass;
+
+		SELECT @idd = tbl_Admin.Admin_ID FROM tbl_Admin INNER JOIN tbl_User ON tbl_Admin.User_ID = tbl_User.User_ID
+		WHERE tbl_Admin.User_ID = @U_ID;
+
+		IF ((@idd is NOT NULL))
+		BEGIN	
+			print('Login Successfull');
+			SET @A_IDD = @id;
+			SET @A_Name = @name;
+		END
+		ELSE
+		BEGIN
+			SET @A_IDD = 0;
+			Raiserror('Cannot Login', 16,1);
+		END
+	END TRY
+	BEGIN CATCH
+		SET @A_IDD = 0;
+		SELECT ERROR_LINE(),ERROR_MESSAGE(),ERROR_PROCEDURE();
+	END CATCH
+END
+
+-- 
+-- Create table Employee
+CREATE TABLE tbl_Employee(Employee_ID INT NOT NULL PRIMARY KEY, User_ID INT NOT NULL, CONSTRAINT FK_Employee_UserID FOREIGN KEY (User_ID) REFERENCES tbl_User(User_ID))
+
+
+-- Employee Login
+ALTER PROCEDURE sp_Employee_Login (@U_ID INT, @E_Pass nvarchar(MAX), @E_IDD INT output, @E_Name nvarchar(MAX) output)
+AS 
+BEGIN
+	BEGIN TRY
+		DECLARE @id INT, @name nvarchar(MAX), @idd INT;
+		SELECT @id = tbl_User.User_ID, @name = tbl_User.User_Name FROM tbl_Employee INNER JOIN tbl_User ON tbl_User.User_ID = tbl_Employee.User_ID
+		WHERE tbl_User.User_ID = @U_ID AND tbl_User.User_Password = @E_Pass;
+
+		SELECT @idd = tbl_Employee.Employee_ID FROM tbl_Employee INNER JOIN tbl_User ON tbl_Employee.User_ID = tbl_User.User_ID
+		WHERE tbl_Employee.User_ID = @U_ID;
+
+		IF ((@idd is NOT NULL))
+		BEGIN	
+			print('Login Successfull');
+			SET @E_IDD = @id;
+			SET @E_Name = @name;
+		END
+		ELSE
+			BEGIN
+				SET @E_IDD = 0;
+				Raiserror('Cannot Login', 16,1);
+			END
+	END TRY
+	BEGIN CATCH
+		SET @E_IDD = 0;
+		SELECT ERROR_LINE(),ERROR_MESSAGE(),ERROR_PROCEDURE();
+	END CATCH
+END
+
+------------------------------------------------------------------------------------------------
+
+-- Search by Car
+ 
+
+-- Search by user
+CREATE PROCEDURE sp_Search_by_user (@U_ID INT, @flag INT output)
+AS 
+BEGIN
+	BEGIN TRY
+		DECLARE @id INT;
+
+		SELECT @id = User_ID FROM tbl_User WHERE User_ID = @U_ID;
+
+		IF (@id is NOT NULL)
+		BEGIN
+			SELECT tbl_Car.Car_Name, tbl_Car.Car_Model, tbl_Car.Car_EngineNo, tbl_Car.Car_ChassisNo, tbl_Car.Car_Model FROM tbl_User INNER JOIN tbl_Car 
+			ON tbl_User.User_ID = tbl_Car.User_ID WHERE tbl_Car.User_ID = @id;
+
+			SET @flag = 1;
+		END
+		ElSE
+		BEGIN
+			SET @flag = 0;
+		END
+		
+	END TRY
+	BEGIN CATCH
+		SET @flag = 0;
+		SELECT ERROR_LINE(),ERROR_MESSAGE(),ERROR_PROCEDURE();
+	END CATCH
+END
+
+-------------------------------------------------------------------------------------
+
+-- Delete car by user
+ALTER PROCEDURE sp_Delete_Car_by_user (@U_ID INT, @C_ID INT, @flag INT output)
+AS 
+BEGIN
+	BEGIN TRY
+		DECLARE @u_idd INT;
+		SELECT @u_idd = User_ID FROM tbl_User WHERE User_ID = @U_ID;
+
+		IF (@u_idd is NOT NULL)
+		BEGIN
+			DECLARE @c_idd INT;
+			
+			SELECT @c_idd = tbl_Car.Car_ID FROM tbl_Car WHERE tbl_Car.Car_ID = @C_ID;
+			
+			IF (@c_idd is NOT NULL)
+			BEGIN
+				DELETE FROM tbl_Car WHERE User_ID = @u_idd AND Car_ID = @c_idd;
+				SET @flag = 1;
+			END
+			ELSE
+			BEGIN
+				SET @flag = 0;
+			END
+		END
+		ELSE 
+		BEGIN
+			SET @flag = 0;
+		END
+		
+	END TRY
+	BEGIN CATCH
+		SELECT ERROR_LINE(),ERROR_MESSAGE(),ERROR_PROCEDURE();
+	END CATCH
+END
+
+-----------------------------------------
+
+CREATE PROCEDURE sp_Delete_Employee_by_Admin (@E_ID INT)
+AS
+BEGIN
+	BEGIN TRY
+		DECLARE @id INT;
+		SELECT @id = tbl_Employee.Employee_ID FROM tbl_Employee WHERE Employee_ID = @E_ID;
+	END TRY
+	BEGIN CATCH
+		SELECT ERROR_LINE(),ERROR_MESSAGE(),ERROR_PROCEDURE();
+	END CATCH
+END
+
+------------------------------------------------------------------------------------------------
+
+INSERT INTO tbl_User (User_Name, User_Password, User_CNIC, User_Address, User_NTN) VALUES ('Saad', 123, 111, 'g11', 1111);
+INSERT INTO tbl_User (User_Name, User_Password, User_CNIC, User_Address, User_NTN) VALUES ('Danyal', 123, 222, 'g11', 2222);
+INSERT INTO tbl_Admin (User_ID) VALUES (1)
+INSERT INTO tbl_Admin (User_ID) VALUES (2)
+
+SELECT * FROM tbl_User
+SELECT * FROM tbl_Admin
+
+------------------------------------------------------------------------------------------------
+
+ALTER TABLE tbl_User ADD CONSTRAINT UK_User UNIQUE(User_CNIC, User_NTN)
+
+ALTER TABLE tbl_Car ADD CONSTRAINT UK_Car UNIQUE(Car_ChassisNo)
+
+------------------------------------------------------------------------------------------------
+
+ALTER PROCEDURE sp_Search_by_car (@U_ID INT, @C_ID INT,  @flag INT output)
+AS 
+BEGIN
+    BEGIN TRY
+        DECLARE @u_idd INT;
+
+        SELECT @u_idd = User_ID FROM tbl_Car WHERE Car_ID = @C_ID;
+
+        IF (@u_idd = @U_ID)
+        BEGIN
+            SELECT tbl_Car.Car_Numberplate, tbl_Car.Car_EngineNo, tbl_Car.Car_ChassisNo, tbl_Car.Car_Name, tbl_Car.Car_Model, tbl_Car.Car_Color FROM tbl_User INNER JOIN tbl_Car 
+            ON tbl_User.User_ID = tbl_Car.User_ID WHERE tbl_Car.User_ID = @u_idd AND tbl_Car.Car_ID = @C_ID;
+
+            SET @flag = 1;
+        END
+        ELSE
+        BEGIN
+            SET @flag = 1;
+        END
+
+    END TRY
+    BEGIN CATCH
+        SELECT ERROR_LINE(),ERROR_MESSAGE(),ERROR_PROCEDURE();
+        SET @flag = 0;
+    END CATCH
+END
+
+-------------------------------------------------------------------------------------------------------------------
+
+ALTER PROCEDURE sp_Delete_Employee_by_Admin (@U_ID INT, @flag INT output)
+AS
+BEGIN
+    BEGIN TRY
+        DECLARE @id INT;
+        SELECT @id = tbl_Employee.User_ID FROM tbl_Employee WHERE User_ID = @U_ID;
+
+        IF ((@id is NOT NULL))
+        BEGIN
+            DELETE FROM tbl_Employee WHERE User_ID = @id;
+            DELETE FROM tbl_User WHERE User_ID = @id;
+            SET @flag = 1;
+        END
+        ELSE
+        BEGIN
+            SET @flag = 1;
+        END
+    END TRY
+    BEGIN CATCH
+        SELECT ERROR_LINE(),ERROR_MESSAGE(),ERROR_PROCEDURE();
+        SET @flag = 0;
+    END CATCH
+END
+
+
+---------------------------------------------------------------------------------------------------------
+
+CREATE PROCEDURE sp_Search_Employee_by_Admin (@U_ID INT, @flag INT output)
+AS
+BEGIN
+    BEGIN TRY
+        SELECT * FROM tbl_User WHERE User_ID = @U_ID;
+        SET @flag = 1;
+    END TRY
+    BEGIN CATCH
+        SELECT ERROR_LINE(),ERROR_MESSAGE(),ERROR_PROCEDURE();
+        SET @flag = 0;
+    END CATCH
+END
+
+-----------------------------------------------------------------------------------------------
+
+select *FROM tbl_Employee
+select *FROM tbl_User
+select * from tbl_Car
+
+
+
